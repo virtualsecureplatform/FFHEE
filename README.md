@@ -1,2 +1,2 @@
-# cuFHEpp
-Full scratched and extended ver. of cuFHE.
+# FFHE(Fastest Fully Homomorphic Encryption in the East.
+CUDA ver. of TFHEpp.
