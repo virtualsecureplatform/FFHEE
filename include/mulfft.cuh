@@ -2,17 +2,17 @@
 
 #include<utility>
 #include <type_traits>
+#include <stdint.h>
 
-#include <params.hpp>
+#include "params.hpp"
 
 namespace FFHEE{
     using namespace std;
-    using namespace TFHEpp;
 
-    __constant__ static double twistlvl1[DEF_N];
-    __constant__ static double tablelvl1[2*DEF_N];
-    __constant__ static double twistlvl2[DEF_nbar];
-    __constant__ static double,tablelvl2[2*DEF_nbar];
+    __constant__ static double twistlvl1[FFHEE_DEF_N];
+    __constant__ static double tablelvl1[2*FFHEE_DEF_N];
+    __constant__ static double twistlvl2[FFHEE_DEF_nbar];
+    __constant__ static double,tablelvl2[2*FFHEE_DEF_nbar];
 
     template<uint32_t N>
     static inline array<double,N> TwistGen(){
@@ -35,10 +35,10 @@ namespace FFHEE{
     }
 
     void FFTInit(){
-        cudaMemcpyToSymbol(twistlvl1,TwistGen<DEF_N>().data(),sizeof(double)*DEF_N);
-        cudaMemcpyToSymbol(tablelvl1,TableGen<DEF_N>().data(),sizeof(double)*2*DEF_N);
-        cudaMemcpyToSymbol(twistlvl2,TwistGen<DEF_nbar>().data(),sizeof(double)*DEF_nbar);
-        cudaMemcpyToSymbol(tablelvl2,TableGen<DEF_nbar>().data(),sizeof(double)*2*DEF_nbar);
+        cudaMemcpyToSymbol(twistlvl1,TwistGen<FFHEE_DEF_N>().data(),sizeof(double)*FFHEE_DEF_N);
+        cudaMemcpyToSymbol(tablelvl1,TableGen<FFHEE_DEF_N>().data(),sizeof(double)*2*FFHEE_DEF_N);
+        cudaMemcpyToSymbol(twistlvl2,TwistGen<FFHEE_DEF_nbar>().data(),sizeof(double)*FFHEE_DEF_nbar);
+        cudaMemcpyToSymbol(tablelvl2,TableGen<FFHEE_DEF_nbar>().data(),sizeof(double)*2*FFHEE_DEF_nbar);
     }
 
     template<typename T = uint32_t,uint32_t N = FFHEE_DEF_N>
