@@ -54,13 +54,14 @@ void TwiddleMul(double* const a, const double* table,const int i,const int step)
 template<uint32_t Nbit = DEF_Nbit-1>
 void IFFT(double* const res, const double* table){
     constexpr uint32_t N = 1<<Nbit;
+    constexpr uint32_t basebit  = 1;
 
-    for(int step = 0; step<Nbit-1; step+=1){
+    for(int step = 0; step<Nbit-basebit; step+=basebit){
         const uint32_t size = 1<<(Nbit-step);
-        const uint32_t elementmask = (size>>1)-1;
-        for(int index=0;index<(N>>1);index+=1){
+        const uint32_t elementmask = (size>>basebit)-1;
+        for(int index=0;index<(N>>basebit);index+=1){
             const uint32_t elementindex = index&elementmask;
-            const uint32_t blockindex = (index - elementindex)>>(Nbit-step-1);
+            const uint32_t blockindex = (index - elementindex)>>(Nbit-step-basebit);
             double* const res0 = &res[blockindex*size+elementindex];
             double* const res1 = res0+size/2;
             cout<<index<<":"<<elementindex<<":"<<blockindex<<":"<<size<<":"<<blockindex*size+elementindex<<endl;
