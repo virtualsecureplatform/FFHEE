@@ -10,4 +10,5 @@ find_package(CUDA REQUIRED)
 #add_subdirectory(TFHEpp)
 #target_link_libraries(FFHEE INTERFACE tfhe++)
 
-add_subdirectory(test)
+#add_subdirectory(test)
+add_subdirectory(playground)
