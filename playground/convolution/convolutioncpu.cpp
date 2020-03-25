@@ -10,10 +10,8 @@ using namespace std;
 
 
 template<typename T = uint32_t,uint32_t N = DEF_N>
-__device__ inline void TwistMulInvert(double* const res, const T* a, const double* twist){
-    const unsigned int tid = threadIdx.x;
-    const unsigned int bdim = blockDim.x;
-        for (int i = tid; i < N / 2; i+=bdim) {
+void TwistMulInvert(double* res, const T* a, const double* twist){
+        for (int i = 0; i < N / 2; i+=1) {
             const double are = static_cast<double>(static_cast<typename make_signed<T>::type>(a[i]));
             const double aim = static_cast<double>(static_cast<typename make_signed<T>::type>(a[i+N/2]));
             const double aimbim = aim * twist[i + N / 2];
@@ -21,24 +19,22 @@ __device__ inline void TwistMulInvert(double* const res, const T* a, const doubl
             res[i] = are * twist[i] - aimbim;
             res[i + N / 2] = aim * twist[i] + arebim;
         }
-        __threadfence();
     }
 
 template<uint32_t N = DEF_N>
-__device__ inline void TwistMulDirectlvl1(uint32_t* const res, const double* a, const double* twist){
-    const unsigned int tid = threadIdx.x;
-    const unsigned int bdim = blockDim.x;
+void TwistMulDirectlvl1(uint32_t* const res, const double* a, const double* twist){
+    const unsigned int tid = 0;
+    const unsigned int bdim = 1;
     for (int i = tid; i < N / 2; i+=bdim) {
         const double aimbim = a[i + N / 2] * -twist[i + N / 2];
         const double arebim = a[i] * -twist[i + N / 2];
         res[i] = static_cast<int64_t>((a[i] * twist[i] - aimbim)*(2.0/N));
         res[i + N / 2] = static_cast<int64_t>((a[i + N / 2] * twist[i] + arebim)*(2.0/N));
     }
-    __threadfence();
 }
 
 template<uint32_t N>
-__device__ inline void ButterflyAdd(double* const a, double* const b){
+void ButterflyAdd(double* const a, double* const b){
     double& are = *a;
     double& aim = *(a+N);
     double& bre = *b;
@@ -53,7 +49,7 @@ __device__ inline void ButterflyAdd(double* const a, double* const b){
 }
 
 template <uint32_t Nbit = DEF_Nbit-1, uint32_t stride, bool isinvert =true>
-__device__ inline void TwiddleMul(double* const a, const double* table,const int i,const int step){
+void TwiddleMul(double* const a, const double* table,const int i,const int step){
     constexpr uint32_t N = 1<<Nbit;
 
     double& are = *a;
@@ -68,7 +64,7 @@ __device__ inline void TwiddleMul(double* const a, const double* table,const int
 }
 
 template <uint32_t Nbit = DEF_Nbit-1, bool isinvert =true>
-__device__ inline void Radix4TwiddleMul(double* const a){
+void Radix4TwiddleMul(double* const a){
     constexpr uint32_t N = 1<<Nbit;
 
     double& are = *a;
@@ -85,7 +81,7 @@ __device__ inline void Radix4TwiddleMul(double* const a){
 }
 
 template <uint32_t Nbit = DEF_Nbit-1, bool isinvert =true>
-__device__ inline void Radix8TwiddleMulStrideOne(double* const a){
+void Radix8TwiddleMulStrideOne(double* const a){
     constexpr uint32_t N = 1<<Nbit;
 
     double& are = *a;
@@ -97,7 +93,7 @@ __device__ inline void Radix8TwiddleMulStrideOne(double* const a){
 }
 
 template <uint32_t Nbit = DEF_Nbit-1, bool isinvert =true>
-__device__ inline void Radix8TwiddleMulStrideThree(double* const a){
+void Radix8TwiddleMulStrideThree(double* const a){
     constexpr uint32_t N = 1<<Nbit;
 
     double& are = *a;
@@ -109,17 +105,14 @@ __device__ inline void Radix8TwiddleMulStrideThree(double* const a){
 }
 
 template<uint32_t Nbit = DEF_Nbit-1>
-__device__ inline void IFFT(double* const res, const double* table){
+void IFFT(double* const res, const double* table){
     constexpr uint32_t N = 1<<Nbit;
     constexpr uint32_t basebit  = 3;
-
-    const unsigned int tid = threadIdx.x;
-    const unsigned int bdim = blockDim.x;
 
     for(int step = 0; step+basebit<Nbit-1; step+=basebit){
         const uint32_t size = 1<<(Nbit-step);
         const uint32_t elementmask = (size>>basebit)-1;
-        for(int index=tid;index<(N>>basebit);index+=bdim){
+        for(int index=0;index<(N>>basebit);index+=1){
             const uint32_t elementindex = index&elementmask;
             const uint32_t blockindex = (index - elementindex)>>(Nbit-step-basebit);
 
@@ -160,15 +153,14 @@ __device__ inline void IFFT(double* const res, const double* table){
             TwiddleMul<Nbit,1,true>(res4,table,elementindex,step);
             TwiddleMul<Nbit,5,true>(res5,table,elementindex,step);
             TwiddleMul<Nbit,3,true>(res6,table,elementindex,step);
-            TwiddleMul<Nbit,7,true>(res7,table,elementindex,step);
+            TwiddleMul<Nbit,7,true>(res7,table,elementindex,step); 
         }
-        __threadfence();
     }
 
     constexpr uint32_t flag = Nbit%basebit;
     switch(flag){
         case 0:
-            for(int index=tid;index<N/8;index+=bdim){
+            for(int index=0;index<N/8;index+=1){
                 double* const res0 = &res[index*8];
                 double* const res1 = res0+1;
                 double* const res2 = res0+2;
@@ -195,6 +187,7 @@ __device__ inline void IFFT(double* const res, const double* table){
                 Radix4TwiddleMul<Nbit,true>(res3);
                 Radix4TwiddleMul<Nbit,true>(res7);
 
+                
                 ButterflyAdd<N>(res0,res1);
                 ButterflyAdd<N>(res2,res3);
                 ButterflyAdd<N>(res4,res5);
@@ -202,7 +195,7 @@ __device__ inline void IFFT(double* const res, const double* table){
             }
             break;
         case 2:
-            for(int index=tid;index<N/4;index+=bdim){
+            for(int index=0;index<N/4;index+=1){
                 double* const res0 = &res[index*4];
                 double* const res1 = res0+1;
                 double* const res2 = res0+2;
@@ -217,7 +210,7 @@ __device__ inline void IFFT(double* const res, const double* table){
             }
             break;
         case 1:
-            for(int index=tid;index<N/2;index+=bdim){
+            for(int index=0;index<N/2;index+=1){
                 double* const res0 = &res[index*2];
                 double* const res1 = res0+1;
 
@@ -225,16 +218,15 @@ __device__ inline void IFFT(double* const res, const double* table){
             }
             break;
     }
-    __threadfence();
 }
 
 template<uint32_t Nbit = DEF_Nbit-1>
-__device__ inline void FFT(double* const res, const double* table){
+void FFT(double* const res, const double* table){
     constexpr uint32_t N = 1<<Nbit;
     constexpr int basebit  = 3;
 
-    const unsigned int tid = threadIdx.x;
-    const unsigned int bdim = blockDim.x;
+    const unsigned int tid = 0;
+    const unsigned int bdim = 1;
 
     constexpr uint32_t flag = Nbit%basebit;
     switch(flag){
@@ -298,11 +290,11 @@ __device__ inline void FFT(double* const res, const double* table){
             }
             break;
     }
-    __threadfence();
 
     for(int step = Nbit-(flag>0?flag:basebit)-basebit; step>=0; step-=basebit){
         const uint32_t size = 1<<(Nbit-step);
         const uint32_t elementmask = (size>>basebit)-1;
+        cout<<elementmask<<endl;
         for(int index=tid;index<(N>>basebit);index+=bdim){
             const uint32_t elementindex = index&elementmask;
             const uint32_t blockindex = (index - elementindex)>>(Nbit-step-basebit);
@@ -315,6 +307,8 @@ __device__ inline void FFT(double* const res, const double* table){
             double* const res5 = res0+5*size/8;
             double* const res6 = res0+6*size/8;
             double* const res7 = res0+7*size/8;
+
+            cout<<step<<":"<<index<<":"<<blockindex<<":"<<elementindex<<endl;
             
             TwiddleMul<Nbit,4,false>(res1,table,elementindex,step);
             TwiddleMul<Nbit,2,false>(res2,table,elementindex,step);
@@ -346,22 +340,17 @@ __device__ inline void FFT(double* const res, const double* table){
             ButterflyAdd<N>(res2,res6);
             ButterflyAdd<N>(res3,res7);
         }
-        __threadfence();
     }
 }
 
-__global__ void TwistIFFTlvl1(double* const res, const uint32_t* a, const double* const twistlvl1, const double* tablelvl1){
-        __shared__ double buff[DEF_N];
-        TwistMulInvert<uint32_t,DEF_N>(buff,a,twistlvl1);
-        IFFT<DEF_Nbit-1>(buff,tablelvl1);
-        for(int i = 0;i<DEF_N;i++) res[i] = buff[i];
-        __threadfence();
+void TwistIFFTlvl1(double* const res, const uint32_t* a, const double* twistlvl1, const double* tablelvl1){
+        TwistMulInvert<uint32_t,DEF_N>(res,a,twistlvl1);
+        IFFT<DEF_Nbit-1>(res,tablelvl1);
     }
 
-__global__ inline void TwistFFTlvl1(uint32_t* const res, const double* a, const double* const twistlvl1, const double* tablelvl1){
-        __shared__ double buff[DEF_N];
+void TwistFFTlvl1(uint32_t* const res, const double* a, const double* const twistlvl1, const double* tablelvl1){
+        double buff[DEF_N];
         for(int i = 0;i<DEF_N;i++) buff[i]=a[i];
-        __threadfence();
         FFT<DEF_Nbit-1>(buff,tablelvl1);
         TwistMulDirectlvl1<DEF_N>(res,buff,twistlvl1);
     }
@@ -370,34 +359,30 @@ int main( int argc, char** argv)
 {
     const array<double,DEF_N> h_twistlvl1 = SPQLIOSpp::TwistGen<DEF_N>();
     const array<double,DEF_N> h_tablelvl1 = SPQLIOSpp::TableGen<DEF_N/2>();
-    double* twistlvl1,*tablelvl1;
-    cudaMalloc( (void**) &twistlvl1, sizeof(h_twistlvl1));
-    cudaMalloc( (void**) &tablelvl1, sizeof(h_tablelvl1));
-    cudaMemcpy( twistlvl1, h_twistlvl1.data(), sizeof(h_twistlvl1),cudaMemcpyHostToDevice);
-    cudaMemcpy( tablelvl1, h_tablelvl1.data(), sizeof(h_tablelvl1),cudaMemcpyHostToDevice);
+    const double* twistlvl1,*tablelvl1;
+    twistlvl1 = h_twistlvl1.data();
+    tablelvl1 = h_tablelvl1.data();
 
     random_device seed_gen;
     default_random_engine engine(seed_gen());
     uniform_int_distribution<uint32_t> Torus32dist(0, UINT32_MAX);
 
-    Polynomiallvl1 a,res;
+    Polynomiallvl1 a;
     for (uint32_t &i : a) i = Torus32dist(engine);
 
+    PolynomialInFDlvl1 h_res;
+    SPQLIOSpp::TwistIFFTlvl1(h_res,a);
 
     uint32_t* d_a;
-    double* d_res;
-    cudaMalloc( (void**) &d_a, sizeof(a));
-    cudaMalloc( (void**) &d_res, sizeof(PolynomialInFDlvl1));
-    cudaMemcpy(d_a,a.data(),sizeof(a),cudaMemcpyHostToDevice);
-    TwistIFFTlvl1<<<1,64>>>(d_res,d_a,twistlvl1,tablelvl1);
-    TwistFFTlvl1<<<1,64>>>(d_a,d_res,twistlvl1,tablelvl1);
-    cudaMemcpy(res.data(),d_a,sizeof(res),cudaMemcpyDeviceToHost);
-    cudaDeviceSynchronize();
+    array<double,DEF_N> d_res;
+    array<uint32_t,DEF_N> res;
+    
+    d_a = a.data();
+    //SPQLIOSpp::TwistIFFTlvl1(d_res,a);
+    TwistIFFTlvl1(d_res.data(),d_a,twistlvl1,tablelvl1);
+    TwistFFTlvl1(res.data(),d_res.data(),twistlvl1,tablelvl1);
+    //SPQLIOSpp::TwistFFTlvl1(res,d_res);
     //for(int i = 0;i<DEF_N;i++) {cout<<i<<":"<<res[i]<<":"<<a[i]<<endl;}
     for(int i = 0;i<DEF_N;i++) {assert(abs(static_cast<int32_t>(res[i]-a[i]))<=1);}
-    cudaFree(d_a);
-    cudaFree(d_res);
-    cudaFree(twistlvl1);
-    cudaFree(tablelvl1);
     cout<<"PASS"<<endl;
 }

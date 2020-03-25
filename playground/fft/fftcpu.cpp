@@ -8,6 +8,14 @@
 using namespace TFHEpp;
 using namespace std;
 
+double* twistlvl1,*tablelvl1;
+
+void FFTinit(){
+    const array<double,DEF_N> h_twistlvl1 = SPQLIOSpp::TwistGen<DEF_N>();
+    const array<double,DEF_N> h_tablelvl1 = SPQLIOSpp::TableGen<DEF_N/2>();
+    twistlvl1 = h_twistlvl1.data();
+    tablelvl1 = h_tablelvl1.data();
+}
 
 template<typename T = uint32_t,uint32_t N = DEF_N>
 void TwistMulInvert(double* res, const T* a, const double* twist){
@@ -355,13 +363,32 @@ void TwistFFTlvl1(uint32_t* const res, const double* a, const double* const twis
         TwistMulDirectlvl1<DEF_N>(res,buff,twistlvl1);
     }
 
+    template<uint32_t N = TFHEpp::DEF_N>
+    void MulInFD(double* res, const double* a, const double* b){
+        const unsigned int tid = 0;
+        const unsigned int bdim = 1;
+
+        for (int i = tid; i < N / 2; i+=bdim) {
+            const double aimbim = a[i + N / 2] * b[i + N / 2];
+            const double arebim = a[i] * b[i + N / 2];
+            res[i] = a[i] * b[i] - aimbim;
+            res[i + N / 2] = a[i + N / 2] * b[i] + arebim;
+        }
+        __threadfence();
+    }
+
+    void PolyMullvl1(uint32_t* res, const uint32_t* a,
+                            const uint32_t* b)
+    {
+        double buff[2][TFHEpp::DEF_N];
+        TwistIFFTlvl1(buff[0], a);
+        TwistIFFTlvl1(buff[1], b);
+        MulInFD<TFHEpp::DEF_N>(buff[0], buff[0], buff[1]);
+        TwistFFTlvl1(res, buff[0]);
+    }
+
 int main( int argc, char** argv) 
 {
-    const array<double,DEF_N> h_twistlvl1 = SPQLIOSpp::TwistGen<DEF_N>();
-    const array<double,DEF_N> h_tablelvl1 = SPQLIOSpp::TableGen<DEF_N/2>();
-    const double* twistlvl1,*tablelvl1;
-    twistlvl1 = h_twistlvl1.data();
-    tablelvl1 = h_tablelvl1.data();
 
     random_device seed_gen;
     default_random_engine engine(seed_gen());
@@ -369,20 +396,18 @@ int main( int argc, char** argv)
 
     Polynomiallvl1 a;
     for (uint32_t &i : a) i = Torus32dist(engine);
+    uniform_int_distribution<uint32_t> Bgdist(0, DEF_Bg);
 
-    PolynomialInFDlvl1 h_res;
-    SPQLIOSpp::TwistIFFTlvl1(h_res,a);
+    Polynomiallvl1 a,b,h_res,res;
+    for (uint32_t &i : a) i = Torus32dist(engine);
+    for (uint32_t &i : b) i = Bgdist(engine);
 
-    uint32_t* d_a;
-    array<double,DEF_N> d_res;
+    SPQLIOSpp::PolyMullvl1(h_res, a, b);
+
     array<uint32_t,DEF_N> res;
     
-    d_a = a.data();
-    //SPQLIOSpp::TwistIFFTlvl1(d_res,a);
-    TwistIFFTlvl1(d_res.data(),d_a,twistlvl1,tablelvl1);
-    TwistFFTlvl1(res.data(),d_res.data(),twistlvl1,tablelvl1);
-    //SPQLIOSpp::TwistFFTlvl1(res,d_res);
+    PolyMullvl1(res.data(),a.data(),b.data())
     //for(int i = 0;i<DEF_N;i++) {cout<<i<<":"<<res[i]<<":"<<a[i]<<endl;}
-    for(int i = 0;i<DEF_N;i++) {assert(abs(static_cast<int32_t>(res[i]-a[i]))<=1);}
+    for(int i = 0;i<DEF_N;i++) {assert(abs(static_cast<int32_t>(res[i]-h_res[i]))<=1);}
     cout<<"PASS"<<endl;
 }
