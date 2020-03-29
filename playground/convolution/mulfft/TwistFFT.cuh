@@ -4,7 +4,7 @@
 
 namespace SPCULIOS{
     template<uint32_t N = TFHEpp::DEF_N>
-    __device__ inline void TwistMulDirectlvl1(uint32_t* const res, const double* a, const double* twist){
+    __device__ inline void TwistMulDirectlvl1(cuPolynomiallvl1 res, const cuPolynomialInFDlvl1 a, const double* twist){
         const unsigned int tid = threadIdx.x;
         const unsigned int bdim = blockDim.x;
 
@@ -143,7 +143,7 @@ namespace SPCULIOS{
         }
     }
 
-    __device__ inline void TwistFFTlvl1(uint32_t* const res, double* a){
+    __device__ inline void TwistFFTlvl1(cuPolynomiallvl1 res, cuPolynomialInFDlvl1 a){
         FFT<TFHEpp::DEF_Nbit-1>(a,tablelvl1);
         TwistMulDirectlvl1<TFHEpp::DEF_N>(res,a,twistlvl1);
     }

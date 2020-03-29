@@ -1,4 +1,6 @@
 #add_subdirectory(constantmemory)
 #add_subdirectory(ifft)
 #add_subdirectory(fft)
-add_subdirectory(convolution)
+#add_subdirectory(convolution)
+#add_subdirectory(pagelock)
+add_subdirectory(externalproduct)

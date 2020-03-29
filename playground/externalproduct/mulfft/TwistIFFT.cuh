@@ -3,6 +3,8 @@
 #include"coroutines.cuh"
 
 namespace SPCULIOS{
+    using namespace FFHEE;
+    
     template<typename T = uint32_t,uint32_t N = TFHEpp::DEF_N>
     __device__ inline void TwistMulInvert(double* const res, const T* a, const double* twist){
         const unsigned int tid = threadIdx.x;
@@ -16,6 +18,23 @@ namespace SPCULIOS{
             const double arebim = are * twist[i + N / 2];
             res[i] = are * twist[i] - aimbim;
             res[i + N / 2] = aim * twist[i] + arebim;
+        }
+        __syncthreads();
+    }
+
+    template<uint32_t N = TFHEpp::DEF_N>
+    __device__ inline void TwistMulInvertinPlace(double* const a, const double* twist){
+        const unsigned int tid = threadIdx.x;
+        const unsigned int bdim = blockDim.x;
+
+        #pragma unroll
+        for (int i = tid; i < N / 2; i+=bdim) {
+            const double are = a[i];
+            const double aim = a[i+N/2];
+            const double aimbim = aim * twist[i + N / 2];
+            const double arebim = are * twist[i + N / 2];
+            a[i] = are * twist[i] - aimbim;
+            a[i + N / 2] = aim * twist[i] + arebim;
         }
         __syncthreads();
     }
@@ -149,6 +168,11 @@ namespace SPCULIOS{
     __device__ inline void TwistIFFTlvl1(cuPolynomialInFDlvl1 res, const cuPolynomiallvl1 a){
             TwistMulInvert<uint32_t,TFHEpp::DEF_N>(res,a,twistlvl1);
             IFFT<TFHEpp::DEF_Nbit-1>(res,tablelvl1);
+        }
+    
+        __device__ inline void TwistIFFTinPlacelvl1(cuPolynomialInFDlvl1 a){
+            TwistMulInvertinPlace<TFHEpp::DEF_N>(a,twistlvl1);
+            IFFT<TFHEpp::DEF_Nbit-1>(a,tablelvl1);
         }
 
 }

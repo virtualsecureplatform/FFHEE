@@ -3,8 +3,10 @@
 #include"coroutines.cuh"
 
 namespace SPCULIOS{
+    using namespace FFHEE;
+    
     template<uint32_t N = TFHEpp::DEF_N>
-    __device__ inline void TwistMulDirectlvl1(uint32_t* const res, const double* a, const double* twist){
+    __device__ inline void TwistMulDirectlvl1(cuPolynomiallvl1 res, const cuPolynomialInFDlvl1 a, const double* twist){
         const unsigned int tid = threadIdx.x;
         const unsigned int bdim = blockDim.x;
 
@@ -22,9 +24,9 @@ namespace SPCULIOS{
     __device__ inline void FFT(double* const res, const double* table){
         constexpr uint32_t N = 1<<Nbit;
         constexpr int basebit  = 3;
-        
-        const unsigned int tid = blockDim.y*threadIdx.y+threadIdx.x;
-        const unsigned int bdim = blockDim.x*blockDim.y;
+
+        const unsigned int tid = threadIdx.x;
+        const unsigned int bdim = blockDim.x;
 
         constexpr uint32_t flag = Nbit%basebit;
         switch(flag){
@@ -88,7 +90,7 @@ namespace SPCULIOS{
                 }
                 break;
         }
-        __threadfence();
+        __syncthreads();
 
         #pragma unroll
         for(int step = Nbit-(flag>0?flag:basebit)-basebit; step>=0; step-=basebit){
@@ -139,18 +141,12 @@ namespace SPCULIOS{
                 ButterflyAdd<N>(res2,res6);
                 ButterflyAdd<N>(res3,res7);
             }
-            __threadfence();
+            __syncthreads();
         }
     }
 
-    __global__ void TwistFFTlvl1(uint32_t* const res, const double* a){
-        const unsigned int tid = blockDim.y*threadIdx.y+threadIdx.x;
-        const unsigned int bdim = blockDim.x*blockDim.y;
-
-        __shared__ double buff[TFHEpp::DEF_N];
-        for(int i = tid;i<TFHEpp::DEF_N;i+=bdim) buff[i]=a[i];
-        __threadfence();
-        FFT<TFHEpp::DEF_Nbit-1>(buff,tablelvl1);
-        TwistMulDirectlvl1<TFHEpp::DEF_N>(res,buff,twistlvl1);
+    __device__ inline void TwistFFTlvl1(cuPolynomiallvl1 res, cuPolynomialInFDlvl1 a){
+        FFT<TFHEpp::DEF_Nbit-1>(a,tablelvl1);
+        TwistMulDirectlvl1<TFHEpp::DEF_N>(res,a,twistlvl1);
     }
 }
