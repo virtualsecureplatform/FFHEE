@@ -10,8 +10,8 @@ namespace SPCULIOS{
     
     template<uint32_t N = TFHEpp::DEF_N>
     __device__ inline void MulInFD(double* res, const double* a, const double* b){
-        const unsigned int tid = threadIdx.x;
-        const unsigned int bdim = blockDim.x;
+        const unsigned int tid = blockDim.x*threadIdx.y+threadIdx.x;
+        const unsigned int bdim = blockDim.x*blockDim.y;
 
         for (int i = tid; i < N / 2; i+=bdim) {
             const double aimbim = a[i + N / 2] * b[i + N / 2];
@@ -26,7 +26,7 @@ namespace SPCULIOS{
     __device__ inline void FMAInFD(double* res, const double* a,
                         const double* b)
     {
-        const unsigned int tid = blockDim.y*threadIdx.y+threadIdx.x;
+        const unsigned int tid = blockDim.x*threadIdx.y+threadIdx.x;
         const unsigned int bdim = blockDim.x*blockDim.y;
         
         for (int i = tid; i < N / 2; i+=bdim) {

@@ -12,8 +12,8 @@ using namespace SPCULIOS;
 template <typename T = uint32_t, uint32_t N = TFHEpp::DEF_N, uint32_t l = TFHEpp::DEF_l,
           uint32_t Bgbit = TFHEpp::DEF_Bgbit, T offset>
 __device__ inline void Decomposition(double decvec[2*l][N], const T trlwe[2][N]){
-    const unsigned int tid = threadIdx.x;
-    const unsigned int bdim = blockDim.x;
+    const unsigned int tid = blockDim.x*threadIdx.y+threadIdx.x;
+    const unsigned int bdim = blockDim.x*blockDim.y;
 
     constexpr T mask = static_cast<T>((1UL << Bgbit) - 1);
     constexpr T halfBg = (1UL << (Bgbit - 1));
@@ -49,7 +49,7 @@ __device__ inline void DecompositionFFTlvl1(cuDecomposedTRLWEInFDlvl1 decvecfft,
     const unsigned int tidy = threadIdx.y;
     static constexpr uint32_t offset = offsetgenlvl1();
     Decomposition<uint32_t, TFHEpp::DEF_N, TFHEpp::DEF_l, TFHEpp::DEF_Bgbit, offset>(decvecfft, trlwe);
-    for (int i = 0; i < 2*TFHEpp::DEF_l; i++) TwistIFFTinPlacelvl1(decvecfft[i]);
+    for (int i = 0; i < TFHEpp::DEF_l; i++) TwistIFFTinPlacelvl1(decvecfft[i+tidy*TFHEpp::DEF_l]);
     __syncthreads();
 }
 
@@ -66,15 +66,14 @@ __global__ void __trgswfftExternalProductlvl1__(){
         FMAInFD<TFHEpp::DEF_N>(restrlwefft[0], decvecfft[i], d_trgswfft[i][0]);
         FMAInFD<TFHEpp::DEF_N>(restrlwefft[1], decvecfft[i], d_trgswfft[i][1]);
     }
-    TwistFFTlvl1(d_res[0], restrlwefft[0]);
-    TwistFFTlvl1(d_res[1], restrlwefft[1]);
+    TwistFFTlvl1(d_res[threadIdx.y], restrlwefft[threadIdx.y]);
 }
 
 void trgswfftExternalProductlvl1(TFHEpp::TRLWElvl1 &res, const TFHEpp::TRLWElvl1 &trlwe,
                                  const TFHEpp::TRGSWFFTlvl1 &trgswfft){
         cudaMemcpyToSymbolAsync(d_trlwe,trlwe.data(),sizeof(trlwe));
         cudaMemcpyToSymbolAsync(d_trgswfft,trgswfft.data(),sizeof(trgswfft));
-        __trgswfftExternalProductlvl1__<<<1,64>>>();
+        __trgswfftExternalProductlvl1__<<<1,dim3(64,2,1)>>>();
         cudaMemcpyFromSymbolAsync(res.data(),d_res,sizeof(res));
     }
 }
