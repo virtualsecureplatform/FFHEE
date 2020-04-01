@@ -3,4 +3,5 @@
 #add_subdirectory(fft)
 #add_subdirectory(convolution)
 #add_subdirectory(pagelock)
-add_subdirectory(externalproduct)
+#add_subdirectory(externalproduct)
+add_subdirectory(blindrotate)

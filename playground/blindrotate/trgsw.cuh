@@ -1,6 +1,6 @@
 #pragma once
 #include<params.hpp>
-#include"mulfft/mulfft.cuh"
+#include"spculios/spculios.cuh"
 #include"cuparams.hpp"
 
 #include <limits>
@@ -52,27 +52,4 @@ __device__ inline void DecompositionFFTlvl1(cuDecomposedTRLWEInFDlvl1 decvecfft,
     for (int i = 0; i < TFHEpp::DEF_l; i++) TwistIFFTinPlacelvl1(decvecfft[i+tidy*TFHEpp::DEF_l]);
 }
 
-__device__ cuTRGSWFFTlvl1 d_trgswfft;
-__device__ cuTRLWElvl1 d_res,d_trlwe;
-
-__global__ void __trgswfftExternalProductlvl1__(){
-    __shared__ cuDecomposedTRLWEInFDlvl1 decvecfft;
-    DecompositionFFTlvl1(decvecfft, d_trlwe);
-    __shared__ cuTRLWEInFDlvl1 restrlwefft;
-    MulInFD<TFHEpp::DEF_N>(restrlwefft[0], decvecfft[0], d_trgswfft[0][0]);
-    MulInFD<TFHEpp::DEF_N>(restrlwefft[1], decvecfft[0], d_trgswfft[0][1]);
-    for (int i = 1; i < 2 * TFHEpp::DEF_l; i++) {
-        FMAInFD<TFHEpp::DEF_N>(restrlwefft[0], decvecfft[i], d_trgswfft[i][0]);
-        FMAInFD<TFHEpp::DEF_N>(restrlwefft[1], decvecfft[i], d_trgswfft[i][1]);
-    }
-    TwistFFTlvl1(d_res[threadIdx.y], restrlwefft[threadIdx.y]);
-}
-
-void trgswfftExternalProductlvl1(TFHEpp::TRLWElvl1 &res, const TFHEpp::TRLWElvl1 &trlwe,
-                                 const TFHEpp::TRGSWFFTlvl1 &trgswfft){
-        cudaMemcpyToSymbolAsync(d_trlwe,trlwe.data(),sizeof(trlwe));
-        cudaMemcpyToSymbolAsync(d_trgswfft,trgswfft.data(),sizeof(trgswfft));
-        __trgswfftExternalProductlvl1__<<<1,dim3(64,2,1)>>>();
-        cudaMemcpyFromSymbolAsync(res.data(),d_res,sizeof(res));
-    }
 }

@@ -5,8 +5,6 @@
 #include"TwistFFT.cuh"
 #include"TwistIFFT.cuh"
 
-#include <limits>
-
 namespace SPCULIOS{
     using namespace FFHEE;
     
