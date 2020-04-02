@@ -4,4 +4,5 @@
 #add_subdirectory(convolution)
 #add_subdirectory(pagelock)
 #add_subdirectory(externalproduct)
-add_subdirectory(blindrotate)
+#add_subdirectory(blindrotate)
+add_subdirectory(gatebootstrapping)

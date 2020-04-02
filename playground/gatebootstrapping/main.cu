@@ -29,41 +29,29 @@ inline void PolynomialMulByXai(array<T, N> &res, const array<T, N> &poly,
 
 int main( int argc, char** argv) 
 {
+    constexpr uint32_t num_test = 1000;
 
     using namespace TFHEpp;
     random_device seed_gen;
     default_random_engine engine(seed_gen());
     uniform_int_distribution<uint32_t> binary(0, 1);
-    uniform_int_distribution<uint32_t> rotate(0, 2*DEF_N-1);
 
-    lweKey key;
-
-    array<bool, DEF_N> p;
-    for (bool &i : p) i = (binary(engine) > 0);
-    Polynomiallvl1 pmu;
-    for (int i = 0; i < DEF_N; i++) pmu[i] = p[i] ? DEF_μ : -DEF_μ;
-    TRLWElvl1 c = trlweSymEncryptlvl1(pmu, DEF_αbk, key.lvl1);
-    TRLWElvl1 res,h_res;
-
-    uint32_t s = binary(engine);
-    uint32_t a = rotate(engine);
-
-    if(s>0){
-        PolynomialMulByXai<uint32_t,DEF_N>(h_res[0],c[0],a);
-        PolynomialMulByXai<uint32_t,DEF_N>(h_res[1],c[1],a);
-    }else{
-        h_res = c;
-    }
-
-    TRGSWFFTlvl1 trgswfft = trgswfftSymEncryptlvl1(s, DEF_αbk, key.lvl1);
+    SecretKey sk;
+    GateKey* gk = new GateKey(sk);
 
     FFTinit();
-    FFHEE::BlindRotateFFTlvl1(res,c,trgswfft,a);
-    cudaDeviceSynchronize();
 
-    array<bool, DEF_N> p2 = trlweSymDecryptlvl1(res, key.lvl1);
-    array<bool, DEF_N> resp = trlweSymDecryptlvl1(h_res, key.lvl1);
-    
-    for (int i = 0; i < DEF_N; i++) assert(resp[i] == p2[i]);
+    for (int test = 0; test < num_test; test++) {
+        bool p = binary(engine) > 0;
+        TLWElvl0 tlwe =
+            tlweSymEncryptlvl0(p ? DEF_μ : -DEF_μ, DEF_α, sk.key.lvl0);
+        TLWElvl0 bootedtlwe;
+
+        FFHEE::GateBootstrapping(bootedtlwe, tlwe, *gk);
+        cudaDeviceSynchronize();
+
+        bool p2 = tlweSymDecryptlvl0(bootedtlwe, sk.key.lvl0);
+        assert(p == p2);
+    }
     cout<<"PASS"<<endl;
 }

@@ -4,6 +4,9 @@
 #include <cstdint>
 
 namespace FFHEE{
+    constexpr uint32_t DEF_MU = 1U << 29;
+    constexpr uint64_t DEF_MUbar = 1UL << 61;
+    
     using cuKeylvl1 = uint32_t[TFHEpp::DEF_N];
     using cuKeylvl2 = uint64_t[TFHEpp::DEF_nbar];
 
