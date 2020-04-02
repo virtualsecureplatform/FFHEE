@@ -4,8 +4,6 @@
 #include <cstdint>
 
 namespace FFHEE{
-    constexpr uint32_t NUMBER_OF_STREAM = 80;
-
     constexpr uint32_t DEF_MU = 1U << 29;
     constexpr uint64_t DEF_MUbar = 1UL << 61;
     

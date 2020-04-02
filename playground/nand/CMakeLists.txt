@@ -5,7 +5,7 @@ project(cugatebootstrapping LANGUAGES CUDA CXX)
 
 find_package(OpenMP)
 
-set(CMAKE_CUDA_FLAGS "-std=c++14 -arch=sm_70 --ptxas-options=-v -ccbin clang++-8 --default-stream per-thread")
+set(CMAKE_CUDA_FLAGS "-std=c++14 -arch=sm_70 --ptxas-options=-v -ccbin clang++-8")
 
 add_executable(cugatebootstrapping main.cu)
 target_link_libraries(cugatebootstrapping PRIVATE tfhe++ OpenMP::OpenMP_CXX)

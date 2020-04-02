@@ -29,7 +29,9 @@ inline void PolynomialMulByXai(array<T, N> &res, const array<T, N> &poly,
 
 int main( int argc, char** argv) 
 {
-    constexpr uint32_t num_test = 1000;
+    constexpr uint32_t num_test = NUMBER_OF_STREAM;
+    array<cudaStream_t,NUMBER_OF_STREAM> starray;
+    for(cudaStream_t &st:starray) cudaStreamCreate(&st);
 
     using namespace TFHEpp;
     random_device seed_gen;
@@ -39,19 +41,37 @@ int main( int argc, char** argv)
     SecretKey sk;
     GateKey* gk = new GateKey(sk);
 
-    FFTinit();
+    FFHEEinit(*gk);
 
-    for (int test = 0; test < num_test; test++) {
-        bool p = binary(engine) > 0;
-        TLWElvl0 tlwe =
-            tlweSymEncryptlvl0(p ? DEF_μ : -DEF_μ, DEF_α, sk.key.lvl0);
-        TLWElvl0 bootedtlwe;
-
-        FFHEE::GateBootstrapping(bootedtlwe, tlwe, *gk);
-        cudaDeviceSynchronize();
-
-        bool p2 = tlweSymDecryptlvl0(bootedtlwe, sk.key.lvl0);
-        assert(p == p2);
+    array<uint8_t,num_test> parray;
+    for(uint8_t &p:parray) p = binary(engine);
+    array<uint32_t,num_test> muarray;
+    for(int i = 0;i<num_test;i++) muarray[i] = (parray[i]>0)? DEF_μ : -DEF_μ;
+    array<TLWElvl0,num_test> tlwearray,bootedtlwearray;
+    for(int i = 0;i<num_test;i++) {
+        tlwearray[i]=tlweSymEncryptlvl0(muarray[i], DEF_α, sk.key.lvl0);
+        cudaHostRegister(tlwearray[i].data(), sizeof(tlwearray[i]),cudaHostRegisterDefault);
+        cudaHostRegister(bootedtlwearray[i].data(), sizeof(bootedtlwearray[i]),cudaHostRegisterDefault);
     }
+
+    float et;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    for (int test = 0; test < num_test; test++) {
+        FFHEE::GateBootstrapping(bootedtlwearray[test], tlwearray[test], starray[test],test);
+    }
+    cudaDeviceSynchronize();
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&et, start, stop);
+    cout<<"Total Time:"<<et<<"ms"<<endl;
+    cout<<"Per Gate:"<<et/num_test<<"ms"<<endl;
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+
+    for(int i = 0; i < num_test; i++ )assert(parray[i] == tlweSymDecryptlvl0(bootedtlwearray[i], sk.key.lvl0));
     cout<<"PASS"<<endl;
+    for(cudaStream_t &st:starray) cudaStreamDestroy(st);
 }

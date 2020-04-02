@@ -3,7 +3,7 @@
 #include<cmath>
 
 namespace SPCULIOS{
-    __device__ double twistlvl1[TFHEpp::DEF_N], tablelvl1[TFHEpp::DEF_N];
+    __device__ double twistlvl1[TFHEpp::DEF_N],tablelvl1[TFHEpp::DEF_N];
 
     template<uint32_t N>
     inline std::array<double,N> TwistGen(){

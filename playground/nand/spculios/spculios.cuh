@@ -13,7 +13,6 @@ namespace SPCULIOS{
         const unsigned int tid = blockDim.x*threadIdx.y+threadIdx.x;
         const unsigned int bdim = blockDim.x*blockDim.y;
 
-        #pragma unroll
         for (int i = tid; i < N / 2; i+=bdim) {
             const double aimbim = a[i + N / 2] * b[i + N / 2];
             const double arebim = a[i] * b[i + N / 2];
@@ -30,7 +29,6 @@ namespace SPCULIOS{
         const unsigned int tid = blockDim.x*threadIdx.y+threadIdx.x;
         const unsigned int bdim = blockDim.x*blockDim.y;
         
-        #pragma unroll
         for (int i = tid; i < N / 2; i+=bdim) {
             res[i] = a[i + N / 2] * b[i + N / 2] - res[i];
             res[i] = a[i] * b[i] - res[i];

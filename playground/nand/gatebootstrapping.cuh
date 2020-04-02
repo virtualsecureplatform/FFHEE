@@ -1,6 +1,5 @@
 #pragma once
 #include<params.hpp>
-#include<cloudkey.hpp>
 #include"cuparams.hpp"
 #include"trgsw.cuh"
 
@@ -108,9 +107,6 @@ __device__ inline void RotatedTestVector(T trlwe[2][N], const T bar, const T mu)
     __syncthreads();
 }
 
-__device__ cuBootStrappingKeyFFTlvl01 d_bkfftlvl01;
-__device__ cuKeySwitchingKey d_ksk;
-__device__ cuTLWElvl0 d_tlwe[NUMBER_OF_STREAM],d_res[NUMBER_OF_STREAM];
 
 __device__ void __GateBootstrappingTLWE2TRLWEFFTlvl01__(cuTRLWElvl1 acc, const cuTLWElvl0 tlwe, uint8_t* const smem){
     uint32_t bara = 2 * TFHEpp::DEF_N - modSwitchFromTorus32<TFHEpp::DEF_Nbit+1>(tlwe[TFHEpp::DEF_n]);
@@ -130,7 +126,7 @@ __device__ inline void SampleExtractIndexZeroAndIdentityKeySwitchlvl10(cuTLWElvl
     constexpr uint32_t prec_offset = 1U << (32 - (1 + TFHEpp::DEF_basebit * TFHEpp::DEF_t));
     constexpr uint32_t mask = (1U << TFHEpp::DEF_basebit) - 1;
 
-#pragma unroll
+#pragma unroll 0
     for (int i = tid; i <= TFHEpp::DEF_n; i += bdim) {
         uint32_t tmp;
         uint32_t res = 0;
@@ -143,7 +139,6 @@ __device__ inline void SampleExtractIndexZeroAndIdentityKeySwitchlvl10(cuTLWElvl
             else
                 tmp = -trlwe[0][TFHEpp::DEF_N - j];
             tmp += prec_offset;
-            #pragma unroll
             for (int k = 0; k < TFHEpp::DEF_t; k++) {
                 val = (tmp >> (32 - (k + 1) * TFHEpp::DEF_basebit)) & mask;
                 if (val != 0)
@@ -155,26 +150,19 @@ __device__ inline void SampleExtractIndexZeroAndIdentityKeySwitchlvl10(cuTLWElvl
     __threadfence();
 }
 
-__global__ void __GateBootstrapping__(cuTLWElvl0* res, cuTLWElvl0* tlwe){
+__global__ void __GateBootstrapping__(){
     extern __shared__ uint8_t smem[];
     cuPolynomiallvl1 *trlwe = (uint32_t (*)[TFHEpp::DEF_N])(uint32_t (*)[TFHEpp::DEF_N])&smem[0];
-    __GateBootstrappingTLWE2TRLWEFFTlvl01__(trlwe,*tlwe,(uint8_t*)&trlwe[2]);
-    SampleExtractIndexZeroAndIdentityKeySwitchlvl10(*res,trlwe);
-}
-
-void FFHEEinit(TFHEpp::GateKey &gk){
-    FFTinit();
-    cudaMemcpyToSymbol(d_bkfftlvl01,gk.bkfftlvl01.data(),sizeof(gk.bkfftlvl01));
-    cudaMemcpyToSymbol(d_ksk,gk.ksk.data(),sizeof(gk.ksk));
+    __GateBootstrappingTLWE2TRLWEFFTlvl01__(trlwe,d_tlwe,(uint8_t*)&trlwe[2]);
+    SampleExtractIndexZeroAndIdentityKeySwitchlvl10(d_res,trlwe);
 }
 
 void GateBootstrapping(TFHEpp::TLWElvl0 &res, const TFHEpp::TLWElvl0 &tlwe,
-                                 const cudaStream_t &st, uint32_t index){
-    cuTLWElvl0 *pt_tlwe,*pt_res;
-    cudaGetSymbolAddress((void**)&pt_tlwe,d_tlwe);
-    cudaGetSymbolAddress((void**)&pt_res,d_res);
-    cudaMemcpyAsync(pt_tlwe+index,tlwe.data(),sizeof(tlwe),cudaMemcpyHostToDevice,st);
-    __GateBootstrapping__<<<1,dim3(TFHEpp::DEF_N/16,TFHEpp::DEF_l,1),48*1024,st>>>(&pt_res[index],&pt_tlwe[index]);
-    cudaMemcpyAsync(res.data(),pt_res+index,sizeof(res),cudaMemcpyDeviceToHost, st);
+                                 const TFHEpp::GateKey &gk){
+    cudaMemcpyToSymbolAsync(d_tlwe,tlwe.data(),sizeof(tlwe));
+    cudaMemcpyToSymbolAsync(d_bkfftlvl01,gk.bkfftlvl01.data(),sizeof(gk.bkfftlvl01));
+    cudaMemcpyToSymbolAsync(d_ksk,gk.ksk.data(),sizeof(gk.ksk));
+    __GateBootstrapping__<<<1,dim3(TFHEpp::DEF_N/16,TFHEpp::DEF_l,1),48*1024>>>();
+    cudaMemcpyFromSymbolAsync(res.data(),d_res,sizeof(res));
 }
 }
