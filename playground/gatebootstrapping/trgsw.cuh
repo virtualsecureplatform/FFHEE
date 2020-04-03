@@ -43,13 +43,13 @@ __device__ constexpr uint32_t offsetgenlvl1()
     return offset;
 }
 
-__device__ inline void DecompositionFFTlvl1(cuDecomposedTRLWEInFDlvl1 decvecfft,
-                                 const cuTRLWElvl1 trlwe)
-{
-    const unsigned int tidy = threadIdx.y;
-    static constexpr uint32_t offset = offsetgenlvl1();
-    Decomposition<uint32_t, TFHEpp::DEF_N, TFHEpp::DEF_l, TFHEpp::DEF_Bgbit, offset>(decvecfft, trlwe);
-    for (int i = 0; i < TFHEpp::DEF_l; i++) TwistIFFTinPlacelvl1(decvecfft[i+tidy*TFHEpp::DEF_l]);
-}
+// __device__ inline void DecompositionFFTlvl1(cuDecomposedTRLWEInFDlvl1 decvecfft,
+//                                  const cuTRLWElvl1 trlwe)
+// {
+//     const unsigned int tidy = threadIdx.y;
+//     static constexpr uint32_t offset = offsetgenlvl1();
+//     Decomposition<uint32_t, TFHEpp::DEF_N, TFHEpp::DEF_l, TFHEpp::DEF_Bgbit, offset>(decvecfft, trlwe);
+//     for (int i = 0; i < TFHEpp::DEF_l; i++) TwistIFFTinPlacelvl1(decvecfft[i+tidy*TFHEpp::DEF_l]);
+// }
 
 }

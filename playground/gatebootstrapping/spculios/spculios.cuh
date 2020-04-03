@@ -40,13 +40,13 @@ namespace SPCULIOS{
         __syncthreads();
     }
 
-    __global__ void PolyMullvl1(cuPolynomiallvl1 res, const cuPolynomiallvl1 a,
-                            const cuPolynomiallvl1 b)
-    {
-        __shared__ cuPolynomialInFDlvl1 buff[2];
-        TwistIFFTlvl1(buff[0], a);
-        TwistIFFTlvl1(buff[1], b);
-        MulInFD<TFHEpp::DEF_N>(buff[0], buff[0], buff[1]);
-        TwistFFTlvl1(res, buff[0]);
-    }
+    // __global__ void PolyMullvl1(cuPolynomiallvl1 res, const cuPolynomiallvl1 a,
+    //                         const cuPolynomiallvl1 b)
+    // {
+    //     __shared__ cuPolynomialInFDlvl1 buff[2];
+    //     TwistIFFTlvl1(buff[0], a);
+    //     TwistIFFTlvl1(buff[1], b);
+    //     MulInFD<TFHEpp::DEF_N>(buff[0], buff[0], buff[1]);
+    //     TwistFFTlvl1(res, buff[0]);
+    // }
 }

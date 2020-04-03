@@ -170,9 +170,9 @@ namespace SPCULIOS{
             IFFT<TFHEpp::DEF_Nbit-1>(res,tablelvl1);
         }
     
-        __device__ inline void TwistIFFTinPlacelvl1(cuPolynomialInFDlvl1 a){
-            TwistMulInvertinPlace<TFHEpp::DEF_N>(a,twistlvl1);
-            IFFT<TFHEpp::DEF_Nbit-1>(a,tablelvl1);
+        __device__ inline void TwistIFFTinPlacelvl1(cuPolynomialInFDlvl1 a,const double* twist,const double* table){
+            TwistMulInvertinPlace<TFHEpp::DEF_N>(a,twist);
+            IFFT<TFHEpp::DEF_Nbit-1>(a,table);
         }
 
 }

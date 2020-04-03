@@ -29,7 +29,7 @@ inline void PolynomialMulByXai(array<T, N> &res, const array<T, N> &poly,
 
 int main( int argc, char** argv) 
 {
-    constexpr uint32_t num_test = NUMBER_OF_STREAM;
+    constexpr uint32_t num_test = NUMBER_OF_STREAM ;
     array<cudaStream_t,NUMBER_OF_STREAM> starray;
     for(cudaStream_t &st:starray) cudaStreamCreate(&st);
 

@@ -37,19 +37,19 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecomposition(double decvec[
     __syncthreads();
 }
 
-__device__ inline void PolynomialMulByXaiMinusOneAndDecompositionFFTlvl1(cuDecomposedPolynomialInFDlvl1 decvecfft, const cuPolynomiallvl1 poly, const uint32_t a){
+__device__ inline void PolynomialMulByXaiMinusOneAndDecompositionFFTlvl1(cuDecomposedPolynomialInFDlvl1 decvecfft, const cuPolynomiallvl1 poly, const uint32_t a, const double* twist, const double* table){
     const unsigned int tidy = threadIdx.y;
     static constexpr uint32_t offset = offsetgenlvl1();
     PolynomialMulByXaiMinusOneAndDecomposition<uint32_t, TFHEpp::DEF_Nbit, TFHEpp::DEF_N, TFHEpp::DEF_l, TFHEpp::DEF_Bgbit, offset>(decvecfft, poly, a);
-    TwistIFFTinPlacelvl1(decvecfft[tidy]);
+    TwistIFFTinPlacelvl1(decvecfft[tidy],twist,table);
 }
 
 
-__device__ void BlindRotateFFTlvl1(cuTRLWElvl1 trlwe, const cuTRGSWFFTlvl1 trgswfft, const uint32_t a, uint8_t* const smem){
+__device__ void BlindRotateFFTlvl1(cuTRLWElvl1 trlwe, const cuTRGSWFFTlvl1 trgswfft, const uint32_t a, const double* twist, const double* table, uint8_t* const smem){
     cuPolynomialInFDlvl1 *decvecfft = (double(*)[TFHEpp::DEF_N])&smem[0];
     cuPolynomialInFDlvl1 *restrlwefft = (double(*)[TFHEpp::DEF_N])&decvecfft[TFHEpp::DEF_l];
 
-    PolynomialMulByXaiMinusOneAndDecompositionFFTlvl1(decvecfft, trlwe[0], a);
+    PolynomialMulByXaiMinusOneAndDecompositionFFTlvl1(decvecfft, trlwe[0], a, twist, table);
     MulInFD<TFHEpp::DEF_N>(restrlwefft[0], decvecfft[0], trgswfft[0][0]);
     MulInFD<TFHEpp::DEF_N>(restrlwefft[1], decvecfft[0], trgswfft[0][1]);
     #pragma unroll
@@ -58,15 +58,16 @@ __device__ void BlindRotateFFTlvl1(cuTRLWElvl1 trlwe, const cuTRGSWFFTlvl1 trgsw
         FMAInFD<TFHEpp::DEF_N>(restrlwefft[1], decvecfft[i], trgswfft[i][1]);
     }
 
-    PolynomialMulByXaiMinusOneAndDecompositionFFTlvl1(decvecfft, trlwe[1], a);
+    PolynomialMulByXaiMinusOneAndDecompositionFFTlvl1(decvecfft, trlwe[1], a, twist, table);
 
+    #pragma unroll
     for (int i = 0; i < TFHEpp::DEF_l; i++) {
         FMAInFD<TFHEpp::DEF_N>(restrlwefft[0], decvecfft[i], trgswfft[i+TFHEpp::DEF_l][0]);
         FMAInFD<TFHEpp::DEF_N>(restrlwefft[1], decvecfft[i], trgswfft[i+TFHEpp::DEF_l][1]);
     }
 
     cuPolynomiallvl1 *buff = (uint32_t (*)[TFHEpp::DEF_N])&decvecfft[0];
-    TwistFFTlvl1(buff[threadIdx.y], restrlwefft[threadIdx.y]);
+    TwistFFTlvl1(buff[threadIdx.y], restrlwefft[threadIdx.y],twist,table);
 
     const unsigned int tid = blockDim.x*threadIdx.y+threadIdx.x;
     const unsigned int bdim = blockDim.x*blockDim.y;
@@ -113,12 +114,23 @@ __device__ cuKeySwitchingKey d_ksk;
 __device__ cuTLWElvl0 d_tlwe[NUMBER_OF_STREAM],d_res[NUMBER_OF_STREAM];
 
 __device__ void __GateBootstrappingTLWE2TRLWEFFTlvl01__(cuTRLWElvl1 acc, const cuTLWElvl0 tlwe, uint8_t* const smem){
+    double* twist = (double*)&smem[0];
+    double* table = (double*)&twist[TFHEpp::DEF_N];
+    const unsigned int tid = blockDim.x*threadIdx.y+threadIdx.x;
+    const unsigned int bdim = blockDim.x*blockDim.y;
+
+    #pragma unroll
+    for(int i = tid;i<TFHEpp::DEF_N;i+=bdim){
+        twist[i] = SPCULIOS::twistlvl1[i];
+        table[i] = SPCULIOS::tablelvl1[i];
+    }
+    __syncthreads();
     uint32_t bara = 2 * TFHEpp::DEF_N - modSwitchFromTorus32<TFHEpp::DEF_Nbit+1>(tlwe[TFHEpp::DEF_n]);
     RotatedTestVector<uint32_t, TFHEpp::DEF_Nbit, TFHEpp::DEF_N>(acc, bara, DEF_MU);
     #pragma unroll
     for(int i = 0; i<TFHEpp::DEF_n;i++){
         bara = modSwitchFromTorus32(tlwe[i]);
-        BlindRotateFFTlvl1(acc,d_bkfftlvl01[i],bara,smem);
+        BlindRotateFFTlvl1(acc,d_bkfftlvl01[i],bara,twist,table,(uint8_t*)&table[TFHEpp::DEF_N]);
     }
 }
 
@@ -166,6 +178,8 @@ void FFHEEinit(TFHEpp::GateKey &gk){
     FFTinit();
     cudaMemcpyToSymbol(d_bkfftlvl01,gk.bkfftlvl01.data(),sizeof(gk.bkfftlvl01));
     cudaMemcpyToSymbol(d_ksk,gk.ksk.data(),sizeof(gk.ksk));
+    cudaFuncSetAttribute(__GateBootstrapping__,cudaFuncAttributePreferredSharedMemoryCarveout,80);
+    cudaFuncSetAttribute(__GateBootstrapping__,cudaFuncAttributeMaxDynamicSharedMemorySize,64*1024);
 }
 
 void GateBootstrapping(TFHEpp::TLWElvl0 &res, const TFHEpp::TLWElvl0 &tlwe,
@@ -174,7 +188,7 @@ void GateBootstrapping(TFHEpp::TLWElvl0 &res, const TFHEpp::TLWElvl0 &tlwe,
     cudaGetSymbolAddress((void**)&pt_tlwe,d_tlwe);
     cudaGetSymbolAddress((void**)&pt_res,d_res);
     cudaMemcpyAsync(pt_tlwe+index,tlwe.data(),sizeof(tlwe),cudaMemcpyHostToDevice,st);
-    __GateBootstrapping__<<<1,dim3(TFHEpp::DEF_N/16,TFHEpp::DEF_l,1),48*1024,st>>>(&pt_res[index],&pt_tlwe[index]);
+    __GateBootstrapping__<<<1,dim3(TFHEpp::DEF_N/16,TFHEpp::DEF_l,1),64*1024,st>>>(&pt_res[index],&pt_tlwe[index]);
     cudaMemcpyAsync(res.data(),pt_res+index,sizeof(res),cudaMemcpyDeviceToHost, st);
 }
 }

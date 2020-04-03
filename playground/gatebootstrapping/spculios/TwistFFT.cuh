@@ -31,6 +31,7 @@ namespace SPCULIOS{
         constexpr uint32_t flag = Nbit%basebit;
         switch(flag){
             case 0:
+                #pragma unroll
                 for(int index=tid;index<N/8;index+=bdim){
                     double* const res0 = &res[index*8];
                     double* const res1 = res0+1;
@@ -65,6 +66,7 @@ namespace SPCULIOS{
                 }
                 break;
             case 2:
+                #pragma unroll
                 for(int index=tid;index<N/4;index+=bdim){
                     double* const res0 = &res[index*4];
                     double* const res1 = res0+1;
@@ -82,6 +84,7 @@ namespace SPCULIOS{
                 }
                 break;
             case 1:
+                #pragma unroll
                 for(int index=tid;index<N/2;index+=bdim){
                     double* const res0 = &res[index*2];
                     double* const res1 = res0+1;
@@ -145,8 +148,8 @@ namespace SPCULIOS{
         }
     }
 
-    __device__ inline void TwistFFTlvl1(cuPolynomiallvl1 res, cuPolynomialInFDlvl1 a){
-        FFT<TFHEpp::DEF_Nbit-1>(a,tablelvl1);
-        TwistMulDirectlvl1<TFHEpp::DEF_N>(res,a,twistlvl1);
+    __device__ inline void TwistFFTlvl1(cuPolynomiallvl1 res, cuPolynomialInFDlvl1 a, const double* twist, const double* table){
+        FFT<TFHEpp::DEF_Nbit-1>(a,table);
+        TwistMulDirectlvl1<TFHEpp::DEF_N>(res,a,twist);
     }
 }
